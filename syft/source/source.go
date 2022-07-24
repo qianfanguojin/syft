@@ -19,6 +19,7 @@ import (
 	"github.com/anchore/syft/internal/log"
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/mholt/archiver/v3"
+	"github.com/sassoftware/go-rpmutils"
 	"github.com/spf13/afero"
 )
 
@@ -267,7 +268,46 @@ func NewFromFile(path string) (Source, func()) {
 func fileAnalysisPath(path string) (string, func()) {
 	var analysisPath = path
 	var cleanupFn = func() {}
+	var cleanupFnRpm = func() {}
+	var rpmTempDir string
+	var rpmTempPath string
+	if filepath.Ext(path) == ".rpm" {
+		tempDir, err := ioutil.TempDir("", "syft-rpm-contents-")
+		if err != nil {
+			fmt.Errorf("unable to create tempdir for archive processing: %w", err)
+		}
 
+		cleanupFnRpm = func() {
+			if err := os.RemoveAll(tempDir); err != nil {
+				log.Warnf("unable to cleanup archive tempdir: %+v", err)
+			}
+		}
+		f, err := os.Open(analysisPath)
+		if err != nil {
+			panic(err)
+		}
+		rpm, err := rpmutils.ReadRpm(f)
+		if err != nil {
+			panic(err)
+		}
+		//Extracting payload
+		if err := rpm.ExpandPayload(tempDir); err != nil {
+			panic(err)
+		}
+		rpmTempDir = tempDir
+	}
+
+	files, _ := os.ReadDir(rpmTempDir)
+	for _, file := range files {
+		filename := file.Name()
+		tmpArchiver, _ := archiver.ByExtension(filename)
+		if tmpArchiver != nil {
+			rpmTempPath = filepath.Join(rpmTempDir, filename)
+			break
+		}
+
+	}
+	path = rpmTempPath
 	// if the given file is an archive (as indicated by the file extension and not MIME type) then unarchive it and
 	// use the contents as the source. Note: this does NOT recursively unarchive contents, only the given path is
 	// unarchived.
@@ -284,7 +324,7 @@ func fileAnalysisPath(path string) (string, func()) {
 			cleanupFn = tmpCleanup
 		}
 	}
-
+	cleanupFnRpm()
 	return analysisPath, cleanupFn
 }
 
