@@ -268,46 +268,16 @@ func NewFromFile(path string) (Source, func()) {
 func fileAnalysisPath(path string) (string, func()) {
 	var analysisPath = path
 	var cleanupFn = func() {}
-	var cleanupFnRpm = func() {}
-	var rpmTempDir string
-	var rpmTempPath string
 	if filepath.Ext(path) == ".rpm" {
-		tempDir, err := ioutil.TempDir("", "syft-rpm-contents-")
-		if err != nil {
-			fmt.Errorf("unable to create tempdir for archive processing: %w", err)
-		}
 
-		cleanupFnRpm = func() {
-			if err := os.RemoveAll(tempDir); err != nil {
-				log.Warnf("unable to cleanup archive tempdir: %+v", err)
-			}
-		}
-		f, err := os.Open(analysisPath)
-		if err != nil {
-			panic(err)
-		}
-		rpm, err := rpmutils.ReadRpm(f)
-		if err != nil {
-			panic(err)
-		}
-		//Extracting payload
-		if err := rpm.ExpandPayload(tempDir); err != nil {
-			panic(err)
-		}
-		rpmTempDir = tempDir
-	}
-
-	files, _ := os.ReadDir(rpmTempDir)
-	for _, file := range files {
-		filename := file.Name()
-		tmpArchiver, _ := archiver.ByExtension(filename)
-		if tmpArchiver != nil {
-			rpmTempPath = filepath.Join(rpmTempDir, filename)
-			break
+		rpmSourceUnarchivedPath, cleanupRpmSourceFn, err := getarchiveInRpmSource(path)
+		defer cleanupRpmSourceFn()
+		if err == nil {
+			path = rpmSourceUnarchivedPath
 		}
 
 	}
-	path = rpmTempPath
+
 	// if the given file is an archive (as indicated by the file extension and not MIME type) then unarchive it and
 	// use the contents as the source. Note: this does NOT recursively unarchive contents, only the given path is
 	// unarchived.
@@ -324,7 +294,6 @@ func fileAnalysisPath(path string) (string, func()) {
 			cleanupFn = tmpCleanup
 		}
 	}
-	cleanupFnRpm()
 	return analysisPath, cleanupFn
 }
 
@@ -399,6 +368,50 @@ func unarchiveToTmp(path string, unarchiver archiver.Unarchiver) (string, func()
 	return tempDir, cleanupFn, unarchiver.Unarchive(path, tempDir)
 }
 
+func getarchiveInRpmSource(path string) (string, func(), error) {
+	var cleanupRpmSourceFn = func() {}
+	var rpmTempDir string
+	archivePath := path
+
+	rpmTempDir, err := ioutil.TempDir("", "syft-rpm-source-contents-")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("unable to create tempdir for rpm source unpack processing: %w", err)
+	}
+
+	cleanupRpmSourceFn = func() {
+		if err := os.RemoveAll(rpmTempDir); err != nil {
+			log.Warnf("unable to cleanup rpm source tempdir: %+v", err)
+		}
+	}
+	fs, err := os.Open(path)
+	if err != nil {
+		return archivePath, cleanupRpmSourceFn, err
+	}
+	rpmSourceFile, err := rpmutils.ReadRpm(fs)
+	if err != nil {
+		return archivePath, cleanupRpmSourceFn, err
+	}
+	//Extracting payload
+	if err := rpmSourceFile.ExpandPayload(rpmTempDir); err != nil {
+		return archivePath, cleanupRpmSourceFn, err
+	}
+
+	files, err := os.ReadDir(rpmTempDir)
+	if err != nil {
+		return archivePath, cleanupRpmSourceFn, err
+	}
+	//find archiver file path in unpacked rpm source dir
+	for _, file := range files {
+		filename := file.Name()
+		tmpArchiver, _ := archiver.ByExtension(filename)
+		if tmpArchiver != nil {
+			archivePath = filepath.Join(rpmTempDir, filename)
+			break
+		}
+
+	}
+	return archivePath, cleanupRpmSourceFn, nil
+}
 func getImageExclusionFunction(exclusions []string) func(string) bool {
 	if len(exclusions) == 0 {
 		return nil
