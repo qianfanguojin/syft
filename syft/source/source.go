@@ -269,9 +269,11 @@ func fileAnalysisPath(path string) (string, func()) {
 	var analysisPath = path
 	var cleanupFn = func() {}
 	if filepath.Ext(path) == ".rpm" {
-		rpmAnalysisPath, cleanupRpmSourceFn, err := getAnalysisPathInRpmSource(path)
+		log.Debugf("to catalog a rpm source")
+		rpmAnalysisPath, tmpCleanup, err := getAnalysisPathInRpmSource(path)
 		if err == nil {
-			return rpmAnalysisPath, cleanupRpmSourceFn
+			cleanupFn = tmpCleanup
+			return rpmAnalysisPath, cleanupFn
 		}
 	}
 	// if the given file is an archive (as indicated by the file extension and not MIME type) then unarchive it and
@@ -366,7 +368,6 @@ func unarchiveToTmp(path string, unarchiver archiver.Unarchiver) (string, func()
 
 func getAnalysisPathInRpmSource(path string) (string, func(), error) {
 	var cleanupRpmSourceFn = func() {}
-	var rpmTempDir string
 
 	rpmTempDir, err := ioutil.TempDir("", "syft-rpm-source-contents-")
 	if err != nil {
@@ -395,29 +396,29 @@ func getAnalysisPathInRpmSource(path string) (string, func(), error) {
 	if err != nil {
 		return "", cleanupRpmSourceFn, err
 	}
-	//find archiver file path in unpacked rpm source dir
+
 	tempDir, err := ioutil.TempDir("", "syft-archive-contents-")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("unable to create tempdir for archive processing: %w", err)
 	}
 	cleanupFn := func() {
+		cleanupRpmSourceFn()
 		if err := os.RemoveAll(tempDir); err != nil {
 			log.Warnf("unable to cleanup archive tempdir: %+v", err)
 		}
 	}
+	//find archiver files in unarchived rpm source dir
+	//then unarchived them
 	for _, file := range files {
 		filename := file.Name()
 		filePath := filepath.Join(rpmTempDir, filename)
 		tmpArchiver, err := archiver.ByExtension(filename)
 		if unarchiver, ok := tmpArchiver.(archiver.Unarchiver); err == nil && ok {
-
 			err = unarchiver.Unarchive(filePath, tempDir)
-
 			if err != nil {
 				log.Warnf("file could not be unarchived: %+v", err)
 			} else {
-				log.Debugf("source path is an archive")
-
+				log.Debugf("%s has been unarchived", filename)
 			}
 		}
 
