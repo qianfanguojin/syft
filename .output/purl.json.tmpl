@@ -1,0 +1,13 @@
+{
+"source": {
+  "type": "{{.Source.Type}}",
+  "target": "{{clean .Source.Target}}"
+ },
+ "purls": [
+ {{- $lenth := len .Artifacts -}}
+ {{- range $index, $value := .Artifacts}}
+  {{$va := add $index 1 -}}
+  "{{$value.PURL -}}"{{if lt $va $lenth}},{{else}}{{break}}{{end}}
+ {{- end}}
+ ]
+}
