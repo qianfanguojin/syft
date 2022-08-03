@@ -1,13 +1,10 @@
 {
-"source": {
-  "type": "{{.Source.Type}}",
-  "target": "{{clean .Source.Target}}"
- },
+ "name": "{{.Source.Target | osBase}}",
  "purls": [
- {{- $lenth := len .Artifacts -}}
+ {{- $artifactLength := len .Artifacts -}}
  {{- range $index, $value := .Artifacts}}
-  {{$va := add $index 1 -}}
-  "{{$value.PURL -}}"{{if lt $va $lenth}},{{else}}{{break}}{{end}}
+  {{$pos := add $index 1 -}}
+  "{{$value.PURL -}}"{{if lt $pos $artifactLength}},{{else}}{{break}}{{end}}
  {{- end}}
  ]
 }
