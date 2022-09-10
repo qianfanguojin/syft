@@ -8,6 +8,10 @@ package source
 import (
 	"context"
 	"fmt"
+	"github.com/bmatcuk/doublestar/v4"
+	"github.com/mholt/archiver/v3"
+	"github.com/sassoftware/go-rpmutils"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,9 +20,6 @@ import (
 	"github.com/anchore/stereoscope"
 	"github.com/anchore/stereoscope/pkg/image"
 	"github.com/anchore/syft/internal/log"
-	"github.com/bmatcuk/doublestar/v4"
-	"github.com/mholt/archiver/v3"
-	"github.com/sassoftware/go-rpmutils"
 	"github.com/spf13/afero"
 )
 

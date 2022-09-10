@@ -61,15 +61,9 @@ require (
 	github.com/in-toto/in-toto-golang v0.3.4-0.20220709202702-fa494aaa0add
 	github.com/knqyf263/go-rpmdb v0.0.0-20220629110411-9a3bd2ebb923
 	github.com/sassoftware/go-rpmutils v0.2.0
-<<<<<<< HEAD
-	github.com/sigstore/cosign v1.10.0
-	github.com/sigstore/rekor v0.9.1
-	github.com/sigstore/sigstore v1.2.1-0.20220614141825-9c0e2e247545
-=======
 	github.com/sigstore/cosign v1.11.1
 	github.com/sigstore/rekor v0.11.0
 	github.com/sigstore/sigstore v1.4.0
->>>>>>> c5dca001e267d2a91ff82e53ca72535ceef6af02
 	github.com/vbatts/go-mtree v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 )
